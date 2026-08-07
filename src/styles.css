@@ -26,8 +26,14 @@
 html,
 body {
   margin: 0;
+  /* dvh tracks the collapsing mobile address bar; the percentage is the fallback. */
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  /* No pull-to-refresh or rubber-banding fighting the list drag. */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   background: #000;
   color: #fff;
   font-family: var(--font-ui);
@@ -501,163 +507,56 @@ a {
 }
 
 /* ---------------------------------------------------------------------------
-   Compact layout
-   Below 640px the anchored design stops reading, so the same markup re-flows
-   into one scrolling column. The shaders keep running full-bleed behind it.
-   Every geometric inline style from layout.ts is overridden here.
+   Compact (phones)
+   layout.ts positions the compact stack absolutely, exactly as it does the
+   desktop composition, so there is no flow layout to override here — only the
+   handful of appearance differences.
 --------------------------------------------------------------------------- */
-.is-compact,
-.is-compact body {
-  overflow: auto;
-}
-
-.is-compact .stage {
-  position: relative;
-  inset: auto;
-  min-height: 100vh;
-  padding: 22px 20px 120px;
-}
-
-.is-compact .panel,
-.is-compact .shared,
-.is-compact .nav {
-  position: static;
-  inset: auto;
-}
-
-/* Only the live section takes part in the flow. */
-.is-compact .panel[aria-hidden='true'],
-.is-compact .shared[aria-hidden='true'] {
-  display: none;
-}
-
-.is-compact .nav {
-  display: flex;
-  gap: 18px;
-  margin-bottom: 28px;
-}
-
-.is-compact .nav__item {
-  position: static;
-  width: auto !important;
-  height: auto !important;
-  font-size: 17px !important;
-}
-
-.is-compact .nav__rule {
-  display: none;
-}
-
-.is-compact .cap {
-  position: static;
-  width: 100% !important;
-  height: auto !important;
-  aspect-ratio: 1;
-  opacity: 1 !important;
-  margin-bottom: 14px;
-}
-
-.is-compact .identity {
-  position: static;
-  width: auto !important;
-  opacity: 1 !important;
-  margin-bottom: 26px;
-}
-
-.is-compact .identity__name {
-  font-size: 26px !important;
-}
-
-.is-compact .identity__role {
-  font-size: 15px !important;
-}
-
 .is-compact .worklist {
-  position: static;
-  width: 100% !important;
-  height: auto !important;
-  left: auto !important;
-  overflow: visible;
+  /* Vertical drags belong to the list; horizontal ones stay with the browser. */
+  touch-action: pan-x;
   cursor: default;
-  touch-action: auto;
 }
 
 .is-compact .worklist__row {
-  position: relative;
-  top: auto !important;
-  height: auto !important;
-  font-size: 32px !important;
-  padding: 9px 0;
-  opacity: 0.62;
-}
-
-.is-compact .worklist__row[aria-selected='true'] {
-  opacity: 1;
-  font-variation-settings: 'wght' 700;
+  /* Fingers are not precise: widen the strike area without moving the text. */
+  padding-right: 12px;
 }
 
 .is-compact .glass {
-  position: static;
-  width: 100% !important;
-  height: auto !important;
-  left: auto !important;
-  top: auto !important;
-  aspect-ratio: 16 / 10;
-  margin-bottom: 22px;
-  border-radius: 8px !important;
-  transform: none !important;
+  /* backdrop-filter over a full-bleed shader canvas is the single most
+     expensive thing on a phone, and it buys almost nothing at this size. */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  background: rgba(217, 217, 217, 0.26);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.is-compact .glass__inner {
-  width: calc(100% - 12px) !important;
-  height: calc(100% - 14px) !important;
-  border-radius: 6px !important;
+.is-compact .identity {
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
 }
 
 .is-compact .about__copy {
-  position: static;
-  width: auto !important;
-  left: auto !important;
-  transform: none;
-  font-size: 17px !important;
-  color: #f4f4f4;
+  color: var(--ink);
+  line-height: 1.45;
 }
 
-.is-compact .contact__card {
-  position: static;
-  width: 100% !important;
-  height: 420px !important;
-  left: auto !important;
-  top: auto !important;
+.is-compact .dials {
+  right: 16px;
+  bottom: 16px;
 }
 
-.is-compact .contact__details {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-top: -350px;
-  padding-bottom: 60px;
+.is-compact .dial__panel {
+  width: 168px;
 }
 
-.is-compact .contact__row,
-.is-compact .contact__cta {
-  position: static;
-  left: auto !important;
-  top: auto !important;
-  transform: none;
-  width: auto;
-  font-size: 17px !important;
-}
-
-.is-compact .contact__cta {
-  margin-top: 30px;
-  width: 204px !important;
-  height: 75px !important;
-  border-radius: 73px !important;
+/* Keep the accent dial clear of the identity block on the shortest screens. */
+@media (max-height: 620px) {
+  .is-compact .cap {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

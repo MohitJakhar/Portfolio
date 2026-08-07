@@ -32,7 +32,10 @@ uniform float uMix;       // A -> B crossfade of the backdrop plate
 uniform float uWork;      // section weights, always summing to 1
 uniform float uAbout;
 uniform float uContact;
-uniform float uSplit;     // x of the About panel edge, device px
+uniform float uSplit;     // About panel edge along its axis, device px
+uniform float uSplitVert; // 1 = the panel is a band across the top
+uniform float uQuality;   // 1 = chromatic aberration; 0 = single-tap phone path
+uniform float uAmbient;   // 0 freezes the never-still field (reduced motion)
 
 uniform vec3  uAccent;
 uniform float uCell;      // base pattern cell, css px
@@ -64,9 +67,9 @@ vec3 plateColor(vec2 pt) {
 float plate(vec2 pt) { return luma(plateColor(pt)); }
 
 float ambient(vec2 p) {
-  return sin(p.x * 0.0062 / uDpr + uTime * 0.55)
+  return (sin(p.x * 0.0062 / uDpr + uTime * 0.55)
        * sin(p.y * 0.0051 / uDpr - uTime * 0.41)
-       + 0.45 * sin((p.x + p.y) * 0.0031 / uDpr + uTime * 0.9);
+       + 0.45 * sin((p.x + p.y) * 0.0031 / uDpr + uTime * 0.9)) * uAmbient;
 }
 
 void main() {
@@ -90,16 +93,26 @@ void main() {
     float push = energy * 0.07;
     float cell = uCell * uDpr * (1.0 + 0.10 * energy);
 
-    // Chromatic aberration: the channels read the grid at slightly different
-    // points along the flow, so it fringes only where the surface is disturbed.
-    vec2 split = flow * 9.0 * uDpr;
-    vec2 gR = floor((frag + warp - split) / cell);
     vec2 gG = floor((frag + warp) / cell);
-    vec2 gB = floor((frag + warp + split) / cell);
-
     vec2 tap = (gG + 0.5) * cell;
-    vec3 Lc = vec3(plate((gR + 0.5) * cell), plate(tap), plate((gB + 0.5) * cell));
-    vec3 th = vec3(bayer8(gR), bayer8(gG), bayer8(gB));
+    vec3 Lc;
+    vec3 th;
+
+    if (uQuality > 0.5) {
+      // Chromatic aberration: the channels read the grid at slightly different
+      // points along the flow, so it fringes only where the surface is disturbed.
+      vec2 split = flow * 9.0 * uDpr;
+      vec2 gR = floor((frag + warp - split) / cell);
+      vec2 gB = floor((frag + warp + split) / cell);
+      Lc = vec3(plate((gR + 0.5) * cell), plate(tap), plate((gB + 0.5) * cell));
+      th = vec3(bayer8(gR), bayer8(gG), bayer8(gB));
+    } else {
+      // Phone path: one tap instead of three. Six texture fetches per fragment
+      // down to two, which is the difference between smooth and not.
+      float l = plate(tap);
+      Lc = vec3(l);
+      th = vec3(bayer8(gG));
+    }
     float n = ambient(tap);
 
     // The gamma lift keeps dark clips from collapsing to a near-black page.
@@ -141,10 +154,14 @@ void main() {
   vec3 cAccent = mix(uAccent * 0.72, uAccent, coverage);
   vec3 flat_ = vec3(0.945);
 
-  // About: the pattern is confined to the accent half. The reading side is flat
+  // About: the pattern is confined to the accent panel. The reading side is flat
   // paper, with no texture and no cursor response — and so is Contact, which
   // keeps its plain grey so only the hands carry the effect.
-  float onPanel = 1.0 - smoothstep(uSplit - 1.0, uSplit + 1.0, frag.x);
+  // Desktop splits the screen left/right; a phone splits it top/bottom, and
+  // gl_FragCoord counts up from the bottom, so that comparison flips.
+  float onPanel = uSplitVert > 0.5
+    ? smoothstep(uSplit - 1.0, uSplit + 1.0, frag.y)
+    : 1.0 - smoothstep(uSplit - 1.0, uSplit + 1.0, frag.x);
   vec3 cAbout = mix(flat_, cAccent, onPanel);
 
   vec3 col = cWork * uWork + cAbout * uAbout + flat_ * uContact;
@@ -177,6 +194,11 @@ export class Backdrop {
   private accent: [number, number, number] = [1, 0.22, 0.22];
   private mode = 0;
   private reveal = 0;
+  private split = { fraction: 0.5, vertical: false };
+  private quality = 1;
+  private ambient = 1;
+  /** Backing-store multiplier; below 1 on phones. See useViewport. */
+  private renderScale = Math.min(window.devicePixelRatio || 1, 2);
   private raf = 0;
   private t0 = performance.now();
   private last = this.t0;
@@ -250,6 +272,17 @@ export class Backdrop {
     this.mode = mode;
   }
 
+  /** `fraction` is the panel's share of its axis, measured from left / top. */
+  setSplit(fraction: number, vertical: boolean) {
+    this.split = { fraction, vertical };
+  }
+
+  setQuality(opts: { renderScale: number; cheap: boolean; ambient: boolean }) {
+    this.renderScale = opts.renderScale;
+    this.quality = opts.cheap ? 0 : 1;
+    this.ambient = opts.ambient ? 1 : 0;
+  }
+
   pointer(x: number, y: number, inside: boolean) {
     this.trail.pointer(x, y, this.canvas.clientWidth, this.canvas.clientHeight, inside);
   }
@@ -259,7 +292,7 @@ export class Backdrop {
   }
 
   private dpr() {
-    return Math.min(window.devicePixelRatio || 1, 2);
+    return this.renderScale;
   }
 
   resize = () => {
@@ -300,7 +333,15 @@ export class Backdrop {
     gl.uniform1f(this.u('uWork'), this.weights.work);
     gl.uniform1f(this.u('uAbout'), this.weights.about);
     gl.uniform1f(this.u('uContact'), this.weights.contact);
-    gl.uniform1f(this.u('uSplit'), this.canvas.width * 0.5);
+    gl.uniform1f(
+      this.u('uSplit'),
+      this.split.vertical
+        ? this.canvas.height * (1 - this.split.fraction)
+        : this.canvas.width * this.split.fraction,
+    );
+    gl.uniform1f(this.u('uSplitVert'), this.split.vertical ? 1 : 0);
+    gl.uniform1f(this.u('uQuality'), this.quality);
+    gl.uniform1f(this.u('uAmbient'), this.ambient);
     gl.uniform3fv(this.u('uAccent'), this.accent);
     gl.uniform1f(this.u('uCell'), 3.0);
     gl.uniform1f(this.u('uReveal'), this.reveal);

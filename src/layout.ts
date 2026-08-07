@@ -14,12 +14,15 @@ import type { Section } from './types';
 /**
  * Turns the Figma numbers into screen pixels.
  *
- * Rather than scaling one centred 1440x1024 board — which leaves the whole
- * composition floating in the middle of wide screens — every element keeps the
- * *anchor* it has in the design and only its offset is scaled. The nav stays
- * pinned to the top-left margin, the project list to the right margin, the
- * identity block to the bottom-left, and the card/glass stay centred. So the
- * design scales up on big displays without drifting away from the edges.
+ * Desktop keeps the design's composition: rather than scaling one centred
+ * 1440x1024 board — which leaves everything floating in the middle of a wide
+ * screen — each element keeps the *anchor* it has in the frame and only its
+ * offset is scaled. Nav to the top-left margin, the project list to the right,
+ * the identity block to the bottom-left, card and frame centred.
+ *
+ * Below 760px that composition stops working at all, so `compactLayout` replaces
+ * it with a vertical stack sized from the viewport. Both branches return the same
+ * shape, so no component knows which one it is looking at.
  */
 export type Box = { left: number; top: number; width: number; height: number };
 
@@ -44,14 +47,29 @@ const LIST_GAP = 971.044 - 923.308;
  * larger and heavier than the resting size — the design's own node width only
  * covers the resting one, so "Presentations AI" would clip when selected.
  */
-const listWidth = (s: number) =>
-  LIST.width * (LIST.activeSize / LIST.size) * 1.05 * s;
+const listWidth = (s: number) => LIST.width * (LIST.activeSize / LIST.size) * 1.05 * s;
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+// ---------------------------------------------------------------------------
+// Compact metrics. Everything the phone layout needs in one place.
+// ---------------------------------------------------------------------------
+const M = (vw: number) => clamp(vw * 0.055, 16, 26);
+const NAV_H = 30;
+const NAV_TOP_SM = 18;
+/** Reserved height for the clip frame. Fixed, so the list never jumps when a
+ *  portrait clip follows a landscape one. */
+const CARD_BAND = (vh: number) => vh * 0.3;
+const CAP_SM = 84;
+const ID_SM = 58;
+/** Share of the screen the About accent panel takes on a phone. */
+const ABOUT_PANEL = 0.52;
+
+const cardTopSm = () => NAV_TOP_SM + NAV_H + 20;
 
 /**
  * The glass frame takes the clip's own aspect ratio rather than the design's
  * fixed landscape box, so a 9:16 reel isn't letterboxed into a widescreen hole.
- * Area is held constant against the design's inner box so the card carries the
- * same visual weight whichever way round it is, then clamped to the viewport.
  */
 export function glassFor(
   aspect: number,
@@ -60,7 +78,29 @@ export function glassFor(
   s: number,
   /** Left edge of the project column; the frame must stay clear of it. */
   listLeft = vw,
+  compact = false,
 ): GlassBox {
+  if (compact) {
+    const m = M(vw);
+    const padX = 8;
+    const padY = 9;
+    const band = CARD_BAND(vh);
+    // Fit the clip inside the reserved band, full width where it can be.
+    const innerH = Math.min((vw - 2 * m - padX) / aspect, band - padY);
+    const innerW = innerH * aspect;
+    const width = innerW + padX;
+    const height = innerH + padY;
+    return {
+      left: vw / 2 - width / 2,
+      top: cardTopSm() + (band - height) / 2,
+      width,
+      height,
+      innerW,
+      innerH,
+      radius: 8,
+    };
+  }
+
   // Sized from the viewport, not from a fixed design box, so the frame grows and
   // shrinks with the window.
   const gap = LIST_GAP * s;
@@ -72,11 +112,9 @@ export function glassFor(
   const boxW = Math.min(vw * 0.42, Math.max(200, listLeft - gap - 24 * s - padX));
   const boxH = vh * 0.62;
   const fit = Math.min(boxW / aspect, boxH);
-  const innerH = fit;
-  const innerW = fit * aspect;
 
-  const width = innerW + padX;
-  const height = innerH + padY;
+  const width = fit * aspect + padX;
+  const height = fit + padY;
 
   return {
     // Hung off the column at the design's spacing rather than centred.
@@ -84,8 +122,8 @@ export function glassFor(
     top: vh / 2 - height / 2,
     width,
     height,
-    innerW,
-    innerH,
+    innerW: fit * aspect,
+    innerH: fit,
     radius: GLASS.radius * s,
   };
 }
@@ -108,8 +146,10 @@ export type Layout = {
   identity: Record<Section, Box> & { name: number; role: number };
   list: {
     left: number;
+    top: number;
     width: number;
     height: number;
+    /** Centre line, relative to the list box. */
     centre: number;
     step: number;
     rowH: number;
@@ -119,7 +159,9 @@ export type Layout = {
     s: number;
   };
   glass: GlassBox;
-  aboutCopy: { left: number; width: number; font: number };
+  aboutCopy: { left: number; top: number; width: number; font: number };
+  /** Accent panel share of its axis, and which axis the shader splits on. */
+  split: { fraction: number; vertical: boolean };
   contact: {
     card: Box;
     rowFont: number;
@@ -136,6 +178,131 @@ export type Layout = {
 };
 
 export function buildLayout(vw: number, vh: number, s: number, compact: boolean): Layout {
+  return compact ? compactLayout(vw, vh) : desktopLayout(vw, vh, s);
+}
+
+// ---------------------------------------------------------------------------
+// Phone: one vertical stack, sized from the viewport.
+// ---------------------------------------------------------------------------
+function compactLayout(vw: number, vh: number): Layout {
+  const m = M(vw);
+  const band = CARD_BAND(vh);
+  const cardTop = cardTopSm();
+
+  // Work: cap and name sit at the foot, the list fills what is left between them
+  // and the clip frame.
+  const idTop = vh - m - ID_SM;
+  const capTop = idTop - 10 - CAP_SM;
+  const listTop = cardTop + band + 16;
+  const listH = Math.max(140, capTop - 14 - listTop);
+
+  // About: the panel is a horizontal band across the top, with the cap and name
+  // centred in it and the copy on the paper below.
+  const panelH = vh * ABOUT_PANEL;
+  const capAbout = Math.min(vw - 2 * m, panelH * 0.62);
+  const aboutBlockTop = (panelH - (capAbout + 12 + ID_SM)) / 2;
+
+  const glass = glassFor(GLASS.innerW / GLASS.innerH, vw, vh, 1, vw, true);
+
+  // Contact: a full-width card, with the details placed at the design's own
+  // proportions inside it so the composition survives the reshape.
+  const cardW = vw - 2 * m;
+  const cardH = Math.min(vh * 0.5, 400);
+  const cardTopC = vh / 2 - cardH / 2;
+  const frac = (y: number) => (y - 225.966) / CONTACT.card.h;
+  const handW = vw * 0.78;
+
+  const navItemW = 62;
+  const navLefts = [0, 1, 2].map((i) => m + i * (navItemW + 6));
+  const navTextW = [30, 36, 47];
+
+  return {
+    s: 1,
+    vw,
+    vh,
+    compact: true,
+    nav: {
+      font: 15,
+      itemW: navItemW,
+      itemH: NAV_H,
+      top: NAV_TOP_SM,
+      lefts: navLefts,
+      rules: navLefts.map((left, i) => ({
+        left: left + (navItemW - navTextW[i]) / 2,
+        width: navTextW[i],
+      })),
+      ruleTop: NAV_TOP_SM + NAV_H - 6,
+    },
+    cap: {
+      work: { left: m, top: capTop, width: CAP_SM, height: CAP_SM },
+      about: {
+        left: vw / 2 - capAbout / 2,
+        top: aboutBlockTop,
+        width: capAbout,
+        height: capAbout,
+      },
+      contact: {
+        left: -capAbout - 40,
+        top: aboutBlockTop,
+        width: capAbout,
+        height: capAbout,
+      },
+    },
+    identity: {
+      work: { left: m, top: idTop, width: vw - 2 * m, height: ID_SM },
+      about: {
+        left: vw / 2 - capAbout / 2,
+        top: aboutBlockTop + capAbout + 12,
+        width: capAbout,
+        height: ID_SM,
+      },
+      contact: { left: m, top: vh + 40, width: vw - 2 * m, height: ID_SM },
+      name: 22,
+      role: 13,
+    },
+    list: {
+      left: m,
+      top: listTop,
+      width: vw - 2 * m,
+      height: listH,
+      centre: listH / 2,
+      step: 44,
+      rowH: 40,
+      size: 26,
+      activeSize: 30,
+      s: 1,
+    },
+    glass,
+    aboutCopy: { left: m, top: panelH + 24, width: vw - 2 * m, font: 15 },
+    split: { fraction: ABOUT_PANEL, vertical: true },
+    contact: {
+      card: { left: m, top: cardTopC, width: cardW, height: cardH },
+      rowFont: 15,
+      rowH: 34,
+      rows: CONTACT.rows.map((r) => cardTopC + frac(r.y) * cardH - 17),
+      instaY: cardTopC + frac(CONTACT.instagram.y) * cardH - 17,
+      instaMark: 20,
+      instaInner: 9,
+      cta: {
+        left: vw / 2 - 84,
+        top: cardTopC + frac(CONTACT.button.y) * cardH,
+        width: 168,
+        height: 56,
+        innerW: 158,
+        innerH: 47,
+      },
+      hand: { w: handW, h: handW / (CONTACT.hand.w / CONTACT.hand.h) },
+      // Low enough that the fingers reach the card without landing on the CTA.
+      left: { cx: vw * 0.04, cy: vh * 0.86, rot: CONTACT.left.rot },
+      right: { cx: vw * 0.92, cy: vh * 0.26, rot: CONTACT.right.rot },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Desktop: the design's own composition, anchored per element.
+// ---------------------------------------------------------------------------
+function desktopLayout(vw: number, vh: number, s: number): Layout {
   /** Scaled offset from the left edge. */
   const L = (x: number) => x * s;
   /** Scaled offset from the right edge. */
@@ -156,22 +323,17 @@ export function buildLayout(vw: number, vh: number, s: number, compact: boolean)
     width: r.w * s,
     height: r.h * s,
   });
+
   // About: the cap and the name travel together as one block, centred in the
   // accent half rather than pinned to the left margin like on Work.
   const capAboutW = CAP.about.w * s;
   const idAboutH = IDENTITY.about.h * s;
-  // The frame's gap between the cap's bottom edge and the name block.
   const capToName = (IDENTITY.about.y - (CAP.about.y + CAP.about.h)) * s;
   const groupH = capAboutW + capToName + idAboutH;
   const groupLeft = vw / 4 - capAboutW / 2;
   const groupTop = vh / 2 - groupH / 2;
 
-  const capAbout: Box = {
-    left: groupLeft,
-    top: groupTop,
-    width: capAboutW,
-    height: capAboutW,
-  };
+  const capAbout: Box = { left: groupLeft, top: groupTop, width: capAboutW, height: capAboutW };
   const idAbout: Box = {
     left: groupLeft,
     top: groupTop + capAboutW + capToName,
@@ -189,7 +351,7 @@ export function buildLayout(vw: number, vh: number, s: number, compact: boolean)
     s,
     vw,
     vh,
-    compact,
+    compact: false,
     nav: {
       font: NAV.size * s,
       itemW: 76.374 * s,
@@ -218,6 +380,7 @@ export function buildLayout(vw: number, vh: number, s: number, compact: boolean)
       // edge pushes the column too far out as the viewport grows, so hold the
       // design's 67.4% instead — with a floor that keeps the longest label in.
       left: listLeft,
+      top: 0,
       width: listW,
       height: vh,
       centre: vh / 2,
@@ -231,9 +394,11 @@ export function buildLayout(vw: number, vh: number, s: number, compact: boolean)
     aboutCopy: {
       // Centred in the reading half, mirroring the cap block in the accent half.
       left: vw * 0.75 - (ABOUT_COPY.w * s) / 2,
+      top: 0,
       width: ABOUT_COPY.w * s,
       font: ABOUT_COPY.size * s,
     },
+    split: { fraction: 0.5, vertical: false },
     contact: {
       card: {
         left: CX(DESIGN.w / 2) - (CONTACT.card.w * s) / 2,

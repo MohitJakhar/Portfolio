@@ -13,22 +13,55 @@ npm run preview  # serve the built output locally
 
 ## Hosting
 
-A plain static build — no server, no environment variables.
+**The repo's own `index.html` is the Vite dev entry** — it points at
+`/src/main.tsx`, which only exists while `npm run dev` is running. Opening it from
+the folder, or pointing a host at the repo root, gives a blank page. The site has
+to be built and the host has to serve `dist/`.
 
 - **Build command:** `npm run build`
 - **Output directory:** `dist`
 - **Node:** 18 or newer
+- No server, no environment variables, no rewrite rules (single page, no routing)
 
-It drops straight onto Vercel, Netlify, Cloudflare Pages or GitHub Pages. It is a
-single page with no client-side routing, so no rewrite rules are needed.
+`.github/workflows/deploy.yml` does this for GitHub Pages on every push to `main`.
+It needs Pages set to **Settings → Pages → Source: GitHub Actions** once; with the
+default "Deploy from a branch" it will serve the raw repo and stay broken.
 
-For GitHub Pages served from a subpath (`user.github.io/repo/`), set
-`base: '/repo/'` in `vite.config.ts` — everything references assets by absolute
-path (`/media/...`, `/img/...`), so without that the media 404s. Root domains and
-the other three hosts need no change.
+Vercel, Netlify and Cloudflare Pages just need the build command and output
+directory above.
 
-The clips in `public/media/` are committed (~17 MB total, largest file 2.6 MB),
-so a fresh clone builds and runs with no extra setup.
+`vite.config.ts` sets `base: './'` and every runtime asset URL goes through
+`src/asset.ts`, so one build works at a domain root *and* under a subpath like
+`user.github.io/repo/` with no reconfiguration.
+
+## Mobile
+
+Below 760px `layout.ts` swaps the desktop composition for a vertical stack —
+`compactLayout` rather than `desktopLayout` — positioned absolutely in exactly the
+same way, so no component knows which branch it is rendering. The clip frame sits
+under the nav and follows whichever row is centred (a phone has no hover, so the
+frame is always up and tapping a row centres it), the looping list fills the
+middle, and the cap and name sit at the foot. About's accent panel becomes a
+horizontal band across the top, which the backdrop shader mirrors by splitting on
+y instead of x.
+
+Three things are traded for frame rate on phones:
+
+- The shader canvases render at **0.75×** the device ratio. The pattern is chunky
+  by design, so the softening is invisible, and it removes ~44% of the fragments.
+- The **single-tap shader path** (`uQuality = 0`) drops the chromatic aberration,
+  taking the dither from six texture fetches per fragment to two.
+- `backdrop-filter` is switched off on the glass frame — compositing a blur over a
+  full-bleed shader canvas is the most expensive thing on the page and buys
+  nothing at that size.
+
+Media is halved twice over: `public/media/*-sm.*` are 360p clips and 960px plates,
+**4.4 MB for the whole set against 15 MB**, chosen at runtime by `bestSrc(p, small)`.
+
+`prefers-reduced-motion` freezes the shaders' ambient drift.
+
+The clips are committed (~21 MB for both sets, largest file 2.6 MB), so a fresh
+clone builds and runs with no extra setup.
 
 ## Layout model
 

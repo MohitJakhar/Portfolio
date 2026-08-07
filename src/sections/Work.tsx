@@ -89,9 +89,9 @@ export function Work({ layout, weight, onHighlight, videoRef, posterSrc }: Props
       const dt = Math.min((now - last) / 1000, 1 / 20);
       last = now;
 
-      const { list, compact } = lay.current;
-      if (compact) return;
-
+      // Compact uses the same absolute positioning as desktop, so this loop runs
+      // on every size — it is what spreads the rows out at all.
+      const { list } = lay.current;
       const total = N * list.step;
       const wrap = (v: number) => {
         const m = ((v % total) + total) % total;
@@ -287,11 +287,13 @@ export function Work({ layout, weight, onHighlight, videoRef, posterSrc }: Props
   const enter = useCallback((i: number) => setHover(i), []);
   const leave = useCallback(() => setHover(null), []);
 
-  const { list } = layout;
-  const open = shown !== null;
+  const { list, compact } = layout;
+  // A phone has no hover, so the frame is always up and simply follows whichever
+  // row is centred. On desktop it opens for a hover or a click.
+  const open = compact || shown !== null;
   // The frame follows the clip's shape. While closing, keep the last shape so it
   // doesn't reshape on the way out.
-  const shape = shown ?? lastHover.current;
+  const shape = compact ? highlight : (shown ?? lastHover.current);
   lastHover.current = shape;
   const glass = glassFor(
     projects[shape].aspect,
@@ -299,6 +301,7 @@ export function Work({ layout, weight, onHighlight, videoRef, posterSrc }: Props
     layout.vh,
     layout.s,
     list.left,
+    compact,
   );
 
   return (
@@ -344,7 +347,7 @@ export function Work({ layout, weight, onHighlight, videoRef, posterSrc }: Props
       <div
         ref={listRef}
         className="worklist"
-        style={{ left: list.left, width: list.width, height: list.height }}
+        style={{ left: list.left, top: list.top, width: list.width, height: list.height }}
         onPointerDown={onPointerDown}
         onPointerLeave={leave}
         onBlur={leave}
@@ -371,7 +374,11 @@ export function Work({ layout, weight, onHighlight, videoRef, posterSrc }: Props
             }}
             role="option"
             aria-selected={i === highlight}
-            onPointerEnter={() => enter(i)}
+            // Touch fires pointerenter on tap and never leaves, which would
+            // strand the hover state. Selection on touch goes through pointerup.
+            onPointerEnter={(e) => {
+              if (e.pointerType === 'mouse') enter(i);
+            }}
             onFocus={() => enter(i)}
             // Mouse selection runs off pointerup (see above). This covers
             // keyboard activation, where `click` is the only signal; it targets

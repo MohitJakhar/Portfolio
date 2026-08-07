@@ -1,3 +1,4 @@
+import { asset } from '../asset';
 import type { Layout } from '../layout';
 
 type Props = { layout: Layout; weight: number };
@@ -17,14 +18,21 @@ export function About({ layout, weight }: Props) {
     >
       <div
         className="about__copy"
-        style={{ left: aboutCopy.left, width: aboutCopy.width, fontSize: aboutCopy.font }}
+        style={{
+          left: aboutCopy.left,
+          width: aboutCopy.width,
+          fontSize: aboutCopy.font,
+          // On a phone the copy sits below the accent band rather than being
+          // centred against it.
+          ...(layout.compact ? { top: aboutCopy.top, transform: 'none' } : null),
+        }}
       >
         <p>
           I make things move. My days run through Figma{' '}
-          <img className="about__tool" src="/img/figma.png" alt="Figma" />, After Effects{' '}
-          <img className="about__tool" src="/img/after-effects.png" alt="After Effects" /> and
-          DaVinci Resolve{' '}
-          <img className="about__tool" src="/img/resolve.png" alt="DaVinci Resolve" />, and my
+          <img className="about__tool" src={asset('img/figma.png')} alt="Figma" />, After Effects{' '}
+          <img className="about__tool" src={asset('img/after-effects.png')} alt="After Effects" />{' '}
+          and DaVinci Resolve{' '}
+          <img className="about__tool" src={asset('img/resolve.png')} alt="DaVinci Resolve" />, and my
           evenings usually involve a motorcycle, a film, or a long detour through somebody
           else&rsquo;s paintings. All three keep turning up in the work, whether I plan it or not.
         </p>

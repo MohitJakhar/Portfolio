@@ -9,6 +9,7 @@ import { Work } from './sections/Work';
 import { Backdrop } from './gl/Backdrop';
 import { Hands } from './gl/Hands';
 import { applyAccent, hexToRgb, loadAccent, saveAccent } from './accent';
+import { asset } from './asset';
 import { loadEffect, modeOf, saveEffect, type EffectId } from './effects';
 import { easeInOut } from './design';
 import { buildLayout } from './layout';
@@ -52,6 +53,24 @@ export default function App() {
     hands.current?.setAccent(rgb, HAND_TINT);
   }, [accent]);
 
+  // ---- device-dependent render settings -----------------------------------
+  // Held in refs as well, so the shader constructors can read the current values
+  // — the effect below cannot reach an instance that does not exist yet.
+  const quality = useRef({ renderScale: 1, cheap: false, ambient: true });
+  quality.current = {
+    renderScale: vp.renderScale,
+    cheap: vp.lowPower,
+    ambient: !vp.reducedMotion,
+  };
+  const split = useRef(layout.split);
+  split.current = layout.split;
+
+  useEffect(() => {
+    backdrop.current?.setQuality(quality.current);
+    hands.current?.setQuality(quality.current);
+    backdrop.current?.setSplit(layout.split.fraction, layout.split.vertical);
+  }, [vp.renderScale, vp.lowPower, vp.reducedMotion, layout.split]);
+
   // ---- surface effect -----------------------------------------------------
   useEffect(() => {
     saveEffect(effect);
@@ -65,8 +84,12 @@ export default function App() {
     if (!bgCanvas.current) return;
     try {
       backdrop.current = new Backdrop(bgCanvas.current);
+      // Applied here as well as in the effects below: those run before this
+      // instance exists, and their deps may never change again.
       backdrop.current.setAccent(hexToRgb(loadAccent()));
       backdrop.current.setMode(modeOf(loadEffect()));
+      backdrop.current.setQuality(quality.current);
+      backdrop.current.setSplit(split.current.fraction, split.current.vertical);
     } catch (err) {
       console.warn('backdrop unavailable:', err);
       document.documentElement.classList.add('no-webgl');
@@ -81,11 +104,12 @@ export default function App() {
     if (!handsCanvas.current) return;
     try {
       hands.current = new Hands(handsCanvas.current, [
-        '/img/hand-left.png',
-        '/img/hand-right.png',
+        asset('img/hand-left.png'),
+        asset('img/hand-right.png'),
       ]);
       hands.current.setAccent(hexToRgb(loadAccent()), HAND_TINT);
       hands.current.setMode(modeOf(loadEffect()));
+      hands.current.setQuality(quality.current);
     } catch (err) {
       console.warn('hands unavailable:', err);
     }
@@ -127,16 +151,17 @@ export default function App() {
   const current = projects.find((x) => x.slug === highlight) ?? projects[0];
   useEffect(() => {
     const v = bgVideo.current;
-    if (v && v.dataset.slug !== current.slug) {
-      v.dataset.slug = current.slug;
-      v.src = bestSrc(current);
+    const key = `${current.slug}|${vp.lowPower ? 'sm' : 'lg'}`;
+    if (v && v.dataset.key !== key) {
+      v.dataset.key = key;
+      v.src = bestSrc(current, vp.lowPower);
       v.load();
       void v.play().catch(() => {
         /* blocked until the first interaction — the poster carries it */
       });
     }
-    void backdrop.current?.setSource(plate(current), v);
-  }, [current]);
+    void backdrop.current?.setSource(plate(current, vp.lowPower), v);
+  }, [current, vp.lowPower]);
 
   // ---- section transition -------------------------------------------------
   const raf = useRef(0);
@@ -235,7 +260,7 @@ export default function App() {
           weight={weights.work}
           onHighlight={setHighlight}
           videoRef={bgVideo}
-          posterSrc={poster(current)}
+          posterSrc={poster(current, vp.lowPower)}
         />
         <About layout={layout} weight={weights.about} />
         <Contact layout={layout} weight={weights.contact} />

@@ -57,6 +57,7 @@ uniform float uCell;
 uniform vec3  uAccent;
 uniform float uTint;
 uniform float uMode;     // 0 dither, 1 halftone
+uniform float uQuality;  // 1 = chromatic aberration; 0 = single-tap phone path
 
 varying vec2 vUv;
 
@@ -106,14 +107,19 @@ void main() {
     vec2 gridId = floor((frag + dispPx) / cell);
     vec2 uv = vUv + toLocal((gridId + 0.5) * cell - frag + dispPx);
 
-    vec2 su = toLocal(flow * 4.5 * uDpr);
     vec4 tG = tap(uv);
     // Alpha from the centre tap alone: letting the split channels widen the
     // silhouette sprays stray coloured fragments outside the hand.
     alpha = tG.a;
     if (alpha < 0.02) discard;
 
-    vec3 Lc = vec3(dot(tap(uv - su).rgb, W), dot(tG.rgb, W), dot(tap(uv + su).rgb, W));
+    vec3 Lc;
+    if (uQuality > 0.5) {
+      vec2 su = toLocal(flow * 4.5 * uDpr);
+      Lc = vec3(dot(tap(uv - su).rgb, W), dot(tG.rgb, W), dot(tap(uv + su).rgb, W));
+    } else {
+      Lc = vec3(dot(tG.rgb, W));
+    }
     Lc = clamp((Lc - 0.26) / 0.60, 0.0, 1.0);
     Lc = clamp(Lc + flow.x * 0.55 + energy * 0.22 + swell * 0.04, 0.0, 1.0);
 
@@ -180,6 +186,8 @@ export class Hands {
   private accent: [number, number, number] = [1, 0.22, 0.22];
   private tint = 0;
   private mode = 0;
+  private quality = 1;
+  private renderScale = Math.min(window.devicePixelRatio || 1, 2);
   private raf = 0;
   private t0 = performance.now();
   private last = this.t0;
@@ -242,6 +250,11 @@ export class Hands {
     this.mode = mode;
   }
 
+  setQuality(opts: { renderScale: number; cheap: boolean }) {
+    this.renderScale = opts.renderScale;
+    this.quality = opts.cheap ? 0 : 1;
+  }
+
   pointer(x: number, y: number, inside: boolean) {
     this.trail.pointer(x, y, this.canvas.clientWidth, this.canvas.clientHeight, inside);
   }
@@ -251,7 +264,7 @@ export class Hands {
   }
 
   private dpr() {
-    return Math.min(window.devicePixelRatio || 1, 2);
+    return this.renderScale;
   }
 
   resize = () => {
@@ -292,6 +305,7 @@ export class Hands {
     gl.uniform3fv(this.uh('uAccent'), this.accent);
     gl.uniform1f(this.uh('uTint'), this.tint);
     gl.uniform1f(this.uh('uMode'), this.mode);
+    gl.uniform1f(this.uh('uQuality'), this.quality);
     gl.uniform1i(this.uh('uTex'), 0);
     gl.uniform1i(this.uh('uTrail'), 1);
     gl.activeTexture(gl.TEXTURE1);

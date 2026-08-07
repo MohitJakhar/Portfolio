@@ -1,3 +1,4 @@
+import { asset } from '../asset';
 import { lerpBox, type Layout } from '../layout';
 import type { Section } from '../types';
 
@@ -26,7 +27,7 @@ export function SharedLayer({ layout, from, to, t, work, contact }: Props) {
   return (
     <div className="shared" aria-hidden={contact > 0.5}>
       <figure className="cap" style={{ ...cap, opacity: present }}>
-        <img src="/img/cap.jpg" alt="A cap reading “I'm lazy, need to sleep more”" />
+        <img src={asset('img/cap.jpg')} alt="A cap reading “I'm lazy, need to sleep more”" />
         <span className="cap__wash" style={{ opacity: work }} />
       </figure>
 

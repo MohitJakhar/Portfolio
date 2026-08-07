@@ -1,3 +1,5 @@
+import { asset } from '../asset';
+
 /**
  * One entry per folder in the shared Drive "Portfolio" root.
  * `driveFolderId` is kept so the per-project pages can enumerate the rest of
@@ -93,11 +95,21 @@ export const projects: Project[] = [
   },
 ];
 
-export const mp4 = (p: Project) => `/media/video/${p.slug}.mp4`;
-export const webm = (p: Project) => `/media/video/${p.slug}.webm`;
-export const poster = (p: Project) => `/media/poster/${p.slug}.jpg`;
-/** Full-bleed frame used as the backdrop plate behind the dither. */
-export const plate = (p: Project) => `/media/poster/${p.slug}-plate.jpg`;
+/**
+ * Two sets of every asset: the full 720p clips for desktop, and 360p `-sm`
+ * variants for phones (4.4 MB for the whole set against 15 MB), which also
+ * spares mobile decoders a needless 720p downscale on a ~390px screen.
+ */
+const v = (p: Project, small: boolean, ext: string) =>
+  asset(`media/video/${p.slug}${small ? '-sm' : ''}.${ext}`);
+
+export const mp4 = (p: Project, small = false) => v(p, small, 'mp4');
+export const webm = (p: Project, small = false) => v(p, small, 'webm');
+export const poster = (p: Project, small = false) =>
+  asset(`media/poster/${p.slug}${small ? '-sm' : ''}.jpg`);
+/** Full-bleed frame used as the backdrop plate behind the pattern. */
+export const plate = (p: Project, small = false) =>
+  asset(`media/poster/${p.slug}-plate${small ? '-sm' : ''}.jpg`);
 
 let webmOk: boolean | null = null;
 
@@ -105,11 +117,11 @@ let webmOk: boolean | null = null;
  * Single best source for imperative playback (the backdrop feeds one <video>
  * straight into a GL texture, so it can't use <source> negotiation).
  */
-export const bestSrc = (p: Project) => {
+export const bestSrc = (p: Project, small = false) => {
   if (webmOk === null) {
     webmOk = !!document
       .createElement('video')
       .canPlayType('video/webm; codecs="vp9"');
   }
-  return webmOk ? webm(p) : mp4(p);
+  return webmOk ? webm(p, small) : mp4(p, small);
 };
