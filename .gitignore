@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# Figma source downloads — working material, not part of the site. The assets
+# the site actually uses are committed under public/img/.
+_figma/
+
+# raw Drive downloads, before transcoding (regenerated, never shipped)
+_originals/
+
+# editor / tooling
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.local

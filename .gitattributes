@@ -1,0 +1,10 @@
+# Normalise line endings in the repo; check out native on Windows.
+* text=auto eol=lf
+
+# Never touch binaries.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.webm binary
+*.mov binary

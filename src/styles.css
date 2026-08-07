@@ -1,0 +1,670 @@
+/* ---------------------------------------------------------------------------
+   Tokens
+
+   Layout note: every position and size comes from JS (see layout.ts), which
+   scales the Figma numbers and anchors each element to the viewport edge it
+   hugs in the design. So this file carries appearance only — no coordinates.
+--------------------------------------------------------------------------- */
+:root {
+  --s: 1;
+  --paper: #f1f1f1;
+  --ink: #1d1d1d;
+  --accent: #ff3939;
+  --accent-soft: #ff5252;
+  --accent-veil: rgba(255, 57, 57, 0.23);
+
+  --font-ui: 'Nunito Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Maven Pro', var(--font-ui);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+/* --- the two shader canvases ---------------------------------------------- */
+.backdrop,
+.handscanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.backdrop {
+  z-index: 0;
+}
+
+
+/* Above the contact card, but never in the way of a click. */
+.handscanvas {
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Fallback if WebGL is missing: at least don't ship a black page. */
+.no-webgl .backdrop {
+  background: #2b2b2b;
+}
+
+/* --- the layout root ------------------------------------------------------ */
+.stage {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  z-index: 2;
+}
+
+.panel,
+.shared,
+.nav {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  will-change: opacity;
+}
+
+/* These two are full-bleed layers stacked over the sections, so they must not
+   intercept the pointer — only their own controls do. */
+.shared,
+.nav {
+  pointer-events: none;
+}
+
+.nav__item {
+  pointer-events: auto;
+}
+
+/* --- nav ----------------------------------------------------------------- */
+.nav__item {
+  position: absolute;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.01em;
+}
+
+.nav__item:hover {
+  opacity: 0.72;
+}
+
+.nav__rule {
+  position: absolute;
+  border-radius: 2px;
+}
+
+/* --- shared elements (cap + identity) ------------------------------------ */
+.cap {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
+  will-change: transform, width, height;
+}
+
+.cap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 100%;
+  display: block;
+}
+
+.cap__wash {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-veil);
+}
+
+.identity {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-display);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.45);
+}
+
+.identity p {
+  margin: 0;
+  line-height: 1.18;
+}
+
+/* --- Work: the looping project list ------------------------------------- */
+.worklist {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.worklist:active {
+  cursor: grabbing;
+}
+
+.worklist:focus-visible {
+  outline: none;
+}
+
+.worklist__row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  text-align: left;
+  will-change: transform, font-size, opacity;
+}
+
+/* --- Work: the glass card ------------------------------------------------ */
+.glass {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  background: rgba(217, 217, 217, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.34),
+    0 24px 70px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(7px) saturate(120%);
+  -webkit-backdrop-filter: blur(7px) saturate(120%);
+  transition:
+    opacity 260ms ease,
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.glass__inner {
+  position: relative;
+  overflow: hidden;
+  background: #0d0d0d;
+}
+
+.glass__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: opacity 200ms ease;
+}
+
+/* --- About -------------------------------------------------------------- */
+.about__copy {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink);
+  line-height: 1.36;
+}
+
+.about__copy p {
+  margin: 0;
+}
+
+.about__tool {
+  display: inline-block;
+  height: 1.05em;
+  width: auto;
+  vertical-align: -0.18em;
+  margin: 0 0.06em;
+}
+
+/* --- Contact ------------------------------------------------------------ */
+.contact__card {
+  position: absolute;
+  background: var(--accent-soft);
+}
+
+.contact__details {
+  position: absolute;
+  inset: 0;
+}
+
+.contact__row {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  color: #fff;
+  font-variation-settings: 'wght' 900;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.contact__row:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.contact__insta-mark {
+  border: 2px solid #fff;
+  border-style: solid;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.contact__insta-mark span {
+  border: 2px solid #fff;
+  border-style: solid;
+}
+
+.contact__cta {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  background: rgba(241, 241, 241, 0.2);
+}
+
+.contact__cta-face {
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  color: var(--accent-soft);
+  font-variation-settings: 'wght' 900;
+  font-weight: 900;
+  transition: transform 200ms ease;
+}
+
+.contact__cta:hover .contact__cta-face {
+  transform: scale(1.04);
+}
+
+/* --- dials (accent + surface effect) ------------------------------------ */
+.dials {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.dial {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.dial__button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 0 0 5px rgba(0, 0, 0, 0.18),
+    0 8px 22px rgba(0, 0, 0, 0.35);
+  transition: transform 180ms ease;
+}
+
+.dial__button:hover {
+  transform: scale(1.12);
+}
+
+/* Both dials open their panel above the button, anchored to the right. */
+.dial__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  background: rgba(20, 20, 20, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 176px;
+  color: #fff;
+}
+
+.dial__swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.dial__swatch {
+  height: 28px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.dial__swatch[aria-pressed='true'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 0 2px #fff;
+}
+
+.dial__custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dial__custom:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dial__custom-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.dial__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- effect dial -------------------------------------------------------- */
+.dial__button--effect {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #1b1b1b;
+}
+
+.dial__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dial__option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  text-align: left;
+}
+
+.dial__option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dial__option[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dial__option-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+  line-height: 1.25;
+}
+
+.dial__option-text em {
+  font-style: normal;
+  font-size: 10.5px;
+  opacity: 0.55;
+  letter-spacing: 0.02em;
+}
+
+/* Miniature of each treatment, so the menu reads at a glance. */
+.dial__chip {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex: none;
+  background: #d8d8d8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.dial__button--effect .dial__chip {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.dial__chip--dither {
+  background-color: #cfcfcf;
+  background-image:
+    radial-gradient(circle at 25% 25%, #1b1b1b 1px, transparent 1.4px),
+    radial-gradient(circle at 75% 75%, #1b1b1b 1px, transparent 1.4px);
+  background-size: 5px 5px;
+}
+
+.dial__chip--halftone {
+  background-color: #ededed;
+  background-image: radial-gradient(circle, #1b1b1b 2px, transparent 2.4px);
+  background-size: 7px 7px;
+}
+
+/* ---------------------------------------------------------------------------
+   Compact layout
+   Below 640px the anchored design stops reading, so the same markup re-flows
+   into one scrolling column. The shaders keep running full-bleed behind it.
+   Every geometric inline style from layout.ts is overridden here.
+--------------------------------------------------------------------------- */
+.is-compact,
+.is-compact body {
+  overflow: auto;
+}
+
+.is-compact .stage {
+  position: relative;
+  inset: auto;
+  min-height: 100vh;
+  padding: 22px 20px 120px;
+}
+
+.is-compact .panel,
+.is-compact .shared,
+.is-compact .nav {
+  position: static;
+  inset: auto;
+}
+
+/* Only the live section takes part in the flow. */
+.is-compact .panel[aria-hidden='true'],
+.is-compact .shared[aria-hidden='true'] {
+  display: none;
+}
+
+.is-compact .nav {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.is-compact .nav__item {
+  position: static;
+  width: auto !important;
+  height: auto !important;
+  font-size: 17px !important;
+}
+
+.is-compact .nav__rule {
+  display: none;
+}
+
+.is-compact .cap {
+  position: static;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  opacity: 1 !important;
+  margin-bottom: 14px;
+}
+
+.is-compact .identity {
+  position: static;
+  width: auto !important;
+  opacity: 1 !important;
+  margin-bottom: 26px;
+}
+
+.is-compact .identity__name {
+  font-size: 26px !important;
+}
+
+.is-compact .identity__role {
+  font-size: 15px !important;
+}
+
+.is-compact .worklist {
+  position: static;
+  width: 100% !important;
+  height: auto !important;
+  left: auto !important;
+  overflow: visible;
+  cursor: default;
+  touch-action: auto;
+}
+
+.is-compact .worklist__row {
+  position: relative;
+  top: auto !important;
+  height: auto !important;
+  font-size: 32px !important;
+  padding: 9px 0;
+  opacity: 0.62;
+}
+
+.is-compact .worklist__row[aria-selected='true'] {
+  opacity: 1;
+  font-variation-settings: 'wght' 700;
+}
+
+.is-compact .glass {
+  position: static;
+  width: 100% !important;
+  height: auto !important;
+  left: auto !important;
+  top: auto !important;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 22px;
+  border-radius: 8px !important;
+  transform: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.is-compact .glass__inner {
+  width: calc(100% - 12px) !important;
+  height: calc(100% - 14px) !important;
+  border-radius: 6px !important;
+}
+
+.is-compact .about__copy {
+  position: static;
+  width: auto !important;
+  left: auto !important;
+  transform: none;
+  font-size: 17px !important;
+  color: #f4f4f4;
+}
+
+.is-compact .contact__card {
+  position: static;
+  width: 100% !important;
+  height: 420px !important;
+  left: auto !important;
+  top: auto !important;
+}
+
+.is-compact .contact__details {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: -350px;
+  padding-bottom: 60px;
+}
+
+.is-compact .contact__row,
+.is-compact .contact__cta {
+  position: static;
+  left: auto !important;
+  top: auto !important;
+  transform: none;
+  width: auto;
+  font-size: 17px !important;
+}
+
+.is-compact .contact__cta {
+  margin-top: 30px;
+  width: 204px !important;
+  height: 75px !important;
+  border-radius: 73px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass__video,
+  .contact__cta-face,
+  .dial__button {
+    transition: none;
+  }
+}
