@@ -18,9 +18,102 @@
       href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400..700&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..900&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Deliberately inline: styles.css arrives through the same bundle that fails
+      in this scenario, so the fallback below has to carry its own styling.
+    -->
+    <style>
+      #bootstrap-help {
+        position: fixed;
+        inset: 0;
+        overflow: auto;
+        box-sizing: border-box;
+        padding: 12vh 8vw;
+        background: #111;
+        color: #eee;
+        font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      #bootstrap-help h1 {
+        margin: 0 0 0.9em;
+        font-size: clamp(21px, 3.4vw, 30px);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      #bootstrap-help p {
+        margin: 0 0 1em;
+        max-width: 62ch;
+        color: #bdbdbd;
+      }
+      #bootstrap-help .muted {
+        margin-top: 1.8em;
+        font-size: 14px;
+        color: #8c8c8c;
+      }
+      #bootstrap-help code {
+        font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        font-size: 0.92em;
+        color: #ff6b6b;
+      }
+      #bootstrap-help pre {
+        margin: 0 0 0.7em;
+        padding: 14px 16px;
+        max-width: 62ch;
+        overflow-x: auto;
+        border-radius: 8px;
+        background: #1c1c1c;
+        border: 1px solid #2c2c2c;
+        font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        font-size: 13.5px;
+        color: #f0f0f0;
+      }
+      #bootstrap-help pre span {
+        color: #7d7d7d;
+      }
+      #bootstrap-help[hidden] {
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      This file is the Vite entry: the script below resolves through the dev
+      server (or is rewritten to a bundle by `npm run build`). Opened straight
+      from the filesystem it cannot load, which used to leave a bare white page
+      with nothing to explain it. The block inside #root is that explanation —
+      React clears the container when it mounts, so it is only ever seen when
+      the app genuinely failed to start.
+    -->
+    <div id="root">
+      <div id="bootstrap-help" hidden>
+        <h1>This page needs to be served, not opened as a file.</h1>
+        <p>
+          <code>index.html</code> in the project root is the development entry
+          point. It loads the app from <code>/src/main.tsx</code>, which only
+          exists while a server is running, so double-clicking it shows nothing.
+        </p>
+        <p>Run one of these from the project folder:</p>
+        <pre>npm install
+npm run dev            <span>→ http://localhost:5173</span></pre>
+        <pre>npm run build
+npm run preview        <span>→ http://localhost:4173</span></pre>
+        <p class="muted">
+          <code>npm run preview</code> serves the real production build — the
+          same files a host serves. Note that browsers also block ES modules
+          over <code>file://</code>, so opening <code>dist/index.html</code>
+          directly may fail for the same reason.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // If the module below never runs, React never clears #root. Reveal the
+      // explanation after a beat rather than immediately, so a slow-but-working
+      // load doesn't flash it.
+      setTimeout(function () {
+        var el = document.getElementById('bootstrap-help');
+        if (el) el.hidden = false;
+      }, 1200);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
