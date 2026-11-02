@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bestSrc, poster, projects, type Project } from '../data/projects';
+import { TINTS } from '../data/tints';
 
 /**
  * The work view: one panel per project on a line that recedes from left to
@@ -326,9 +327,11 @@ export function Stack({ onOpen, hidden }: Props) {
             style={{
               width: `calc(var(--P) * ${Math.sqrt(p.aspect).toFixed(4)})`,
               aspectRatio: String(p.aspect),
+              // The folder's glass takes the project's own colour.
+              ['--tint' as string]: TINTS[p.slug] ?? 'var(--blue)',
             }}
           >
-            {/* The folder each project sits in, behind its face. */}
+            {/* The glass folder each project sits in, tinted from its poster. */}
             <span className="panel__folder" aria-hidden>
               <span className="panel__tab" />
             </span>
