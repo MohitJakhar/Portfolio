@@ -44,7 +44,7 @@ perspective panels receding on a diagonal.
 | work    | `src/sections/Stack.tsx`    | the panel loop and footer notes |
 | about   | `src/sections/About.tsx`    | cap photo and bio |
 | contact | `src/sections/Contact.tsx`  | email, phone, Instagram (`src/data/contact.ts`) |
-| viewer  | `src/components/Viewer.tsx` | one project, full size, with sound |
+| project | `src/sections/ProjectPage.tsx` | a project's full-length videos, from its Drive folder |
 
 **The stack.** One panel per project, at the clip's own aspect ratio (constant
 area, so a 9:16 reel and a 16:9 film weigh the same), on a line that recedes from
@@ -57,6 +57,26 @@ one end to the other is never seen to jump. Wheel, drag or swipe moves along the
 always rests on a panel. The centred panel is the open project and plays its
 clip in place; click it (or Enter) for the full viewer with sound, click any
 other panel to bring it to the centre. Geometry lives in the `tick` loop in `Stack.tsx`.
+
+## Project pages
+
+Clicking the centre panel opens `#project/<slug>`: the project's full-length
+videos, played from its shared Google Drive folder in Drive's own player, so
+the full films never live in this repo (GitHub Pages caps files at 100 MB and
+sites at about 1 GB). The page opens on the video the 12 s preview was cut
+from (`source` in `projects.ts`); the folder's other videos are listed below it
+with Drive thumbnails, and clicking one plays it.
+
+`src/data/drive.ts` lists every video's Drive id, name and aspect ratio. It is
+generated: after adding or renaming videos in Drive, run
+
+```bash
+python tools/drive.py
+```
+
+The folders must be shared as "Anyone with the link". Routes live in the hash
+(`#about`, `#contact`, `#project/hsbc`), so the back button and shared links
+work with no server rewrites.
 
 ## Media
 

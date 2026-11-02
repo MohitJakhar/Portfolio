@@ -532,55 +532,153 @@ p {
   color: var(--grey);
 }
 
-/* --- viewer ----------------------------------------------------------------- */
-.viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  background: var(--paper);
-  text-transform: uppercase;
-  animation: in 0.25s ease both;
+/* --- project page -----------------------------------------------------------
+   The page grid, like About: the project's name as the statement, then the
+   full-length video in Drive's player at its own shape, then the folder's other
+   videos. --aspect on the frame is the video's width / height.
+----------------------------------------------------------------------------- */
+.project {
+  row-gap: clamp(28px, 5vh, 56px);
 }
 
-.viewer__frame {
-  display: grid;
-  place-items: center;
-  min-height: 0;
-  padding: max(56px, env(safe-area-inset-top, 0px)) var(--pad) 16px;
+.project__title {
+  grid-column: 1 / 3;
+  align-self: end;
 }
 
-.viewer video {
-  display: block;
-  height: 100%;
-  max-width: 100%;
-  aspect-ratio: var(--aspect);
-  object-fit: contain;
-  background: #e7e3da;
+.project__meta {
+  grid-column: 3 / 5;
+  align-self: end;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
 }
 
-.viewer__bar {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  column-gap: var(--pad);
-  padding: 14px max(var(--pad), env(safe-area-inset-right, 0px))
-    max(14px, env(safe-area-inset-bottom, 0px)) max(var(--pad), env(safe-area-inset-left, 0px));
+.project__meta p {
+  text-align: right;
 }
 
-.viewer__bar span {
+.project__meta span,
+.project__player figcaption span,
+.project__format,
+.project__nav span {
   color: var(--grey);
 }
 
-.viewer__nav {
-  grid-column: 3 / 5;
-  display: flex;
-  gap: 24px;
-  justify-content: flex-end;
-  align-items: flex-start;
+.project__back {
+  white-space: nowrap;
 }
 
-.viewer__nav button:hover {
+.project__back:hover,
+.project__nav button:hover {
+  color: var(--grey);
+}
+
+.project__player {
+  grid-column: 1 / -1;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.project__frame {
+  /* As large as fits under the title: the full width, or 66% of the screen's height. */
+  width: min(100%, calc(66vh * var(--aspect)));
+  aspect-ratio: var(--aspect);
+  background: #e7e3da;
+}
+
+.project__frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.project__player figcaption {
+  display: flex;
+  gap: 12px;
+}
+
+.project__more {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+}
+
+.project__more ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 24px var(--pad);
+}
+
+.project__more button {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+}
+
+.project__thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  background: #ebe7de;
+  overflow: hidden;
+}
+
+/* The whole frame, uncropped, so a 9:16 reel and a 16:9 film both read. */
+.project__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: scale 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.project__more button:hover img {
+  scale: 1.04;
+}
+
+.project__name {
+  text-transform: none;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.project__more button.is-on .project__name::before {
+  content: '▶ ';
+  font-size: 9px;
+  vertical-align: 2px;
+}
+
+.project__more button:not(.is-on) .project__name {
+  color: var(--ink);
+}
+
+.project__nav {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.project__nav button {
+  display: grid;
+  gap: 2px;
+}
+
+.project__nav button:last-child {
+  text-align: right;
+}
+
+.project__empty {
+  grid-column: 1 / -1;
   color: var(--grey);
 }
 
@@ -632,7 +730,9 @@ p {
   }
 
   .page__left,
-  .page__right {
+  .page__right,
+  .project__title,
+  .project__meta {
     grid-column: 1 / -1;
   }
 
@@ -640,9 +740,6 @@ p {
     max-width: 60%;
   }
 
-  .viewer__nav {
-    grid-column: 2 / 5;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

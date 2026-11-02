@@ -269,7 +269,7 @@ export function Stack({ onOpen, hidden }: Props) {
       return;
     }
     if (p?.panel == null) return;
-    // The open panel plays; any other one comes to the centre first.
+    // The centre panel opens its project page; any other one comes to the centre first.
     if (p.panel === activeRef.current) onOpen(projects[p.panel]);
     else goTo(p.panel);
   };
@@ -293,7 +293,7 @@ export function Stack({ onOpen, hidden }: Props) {
         tabIndex={0}
         role="group"
         aria-roledescription="carousel"
-        aria-label={`${N} projects. ${ap.title} is open. Arrow keys move, Enter plays.`}
+        aria-label={`${N} projects. ${ap.title} is in the centre. Arrow keys move, Enter opens it.`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -360,7 +360,7 @@ export function Stack({ onOpen, hidden }: Props) {
       {/* Outside the stack: its perspective would trap a fixed element and clip
           the circle at the stack's edges. */}
       <div ref={cursorRef} className={`cursor${over !== null ? ' is-open' : ''}`} aria-hidden>
-        {over === null ? 'Drag' : over === active ? 'Play' : 'View'}
+        {over === null ? 'Drag' : over === active ? 'Open' : 'View'}
       </div>
 
       {/* The open project, large, from the left margin. Keyed so each change
@@ -395,7 +395,7 @@ export function Stack({ onOpen, hidden }: Props) {
         <p className="foot__right">
           Drag or scroll
           <br />
-          <span>Click the centre panel to play</span>
+          <span>Click the centre panel to open</span>
         </p>
       </div>
     </section>
