@@ -225,7 +225,7 @@ export function Stack({ onOpen, hidden }: Props) {
     // or left both go to the next project, like scrolling down a feed. A mouse
     // drag is mostly sideways.
     const along = p.touch ? dxp + dyp : dxp - dyp * 0.25;
-    offset.current -= along / (size.current.P * (p.touch ? 0.85 : 0.5));
+    offset.current -= along / (size.current.P * (p.touch ? 0.55 : 0.5));
     const now = performance.now();
     p.hist.push({ t: now, o: offset.current });
     while (p.hist.length > 2 && now - p.hist[0].t > 120) p.hist.shift();
@@ -257,14 +257,14 @@ export function Stack({ onOpen, hidden }: Props) {
         /* already released */
       }
       // Speed over the last ~100ms of the drag rather than the last event, then
-      // land on a whole panel a short way on: on a phone a flick adds at most
-      // one project, so it never spins the loop.
+      // land on a whole panel a short way on: a flick adds a project or two
+      // projects on a phone (three with a mouse), so it never spins the loop.
       const h = p ? p.hist : [];
       const a = h[0];
       const b = h[h.length - 1];
       const dt = a && b ? (b.t - a.t) / 1000 : 0;
       const v = dt > 0.01 && performance.now() - b.t < 80 ? (b.o - a.o) / dt : 0;
-      const fling = p?.touch ? clamp(v * 0.12, -1, 1) : clamp(v * 0.18, -3, 3);
+      const fling = p?.touch ? clamp(v * 0.2, -1.5, 1.5) : clamp(v * 0.18, -3, 3);
       target.current = Math.round(offset.current + fling);
       return;
     }

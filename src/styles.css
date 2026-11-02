@@ -357,7 +357,9 @@ p {
 
 /* --- scrubber: one tick per project ---------------------------------------- */
 .scrub {
-  grid-column: 3;
+  /* Centred on the page: across the two middle columns. */
+  grid-column: 2 / 4;
+  justify-self: center;
   align-self: end;
   display: flex;
   align-items: flex-end;
