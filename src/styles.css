@@ -9,6 +9,7 @@
   --ink: #111111;
   --grey: #8d8a83;
   --line: rgba(17, 17, 17, 0.12);
+  --blue: #18a6ee; /* the folders */
   --sans: 'Host Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --pad: 16px;
   color-scheme: light;
@@ -159,44 +160,92 @@ p {
   outline-offset: -6px;
 }
 
-/* One project. Placed by Stack.tsx; this is only its surface. */
+/* One project. Placed by Stack.tsx: a blue folder at the back, the poster
+   face in front of it. */
 .panel {
   position: absolute;
   left: 50%;
   top: 43%;
-  overflow: hidden;
-  background: #dcd8cf center / cover no-repeat;
-  border-radius: 2px;
   --wash: 0;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
-    0 40px 70px -40px rgb(17 17 17 / calc(0.45 * (1 - var(--wash))));
   backface-visibility: hidden;
   will-change: transform;
   cursor: none;
 }
 
-/* A sheen across each face, so the panels read as glass rather than paper. */
-.panel::after {
+/* The folder: a little larger than the face, so it shows round the edges, with
+   its tab rising at the top left. Toward the ends of the line its blue mixes
+   into the paper rather than going transparent, so nothing shows through it. */
+.panel__folder,
+.panel__tab {
+  background: color-mix(in srgb, var(--paper) calc(var(--wash) * 100%), var(--blue));
+}
+
+.panel__folder {
+  position: absolute;
+  /* The same margin on all four sides, from the panel size rather than each
+     side's own length, so it matches across every folder and aspect ratio. */
+  inset: calc(var(--P) * -0.045);
+  border-radius: calc(var(--P) * 0.035);
+  box-shadow: 0 30px 50px -36px rgb(11 110 170 / calc(0.55 * (1 - var(--wash))));
+}
+
+/* Lighter at the top, like the folder in the reference. */
+.panel__folder::after {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 255 255 / calc(0.22 * (1 - var(--wash)))), transparent 45%);
+}
+
+.panel__tab {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 1px);
+  width: 44%;
+  height: calc(var(--P) * 0.07);
+  /* Rounded top-left corner, a flat top, then a smooth S-curve down into the
+     folder's top edge. A mask rather than clip-path, so the curve stays smooth
+     at any size. */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0 20V7C0 3 2 0 6 0H60C67 0 70 3 74 9C78 16 82 20 92 20Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0 20V7C0 3 2 0 6 0H60C67 0 70 3 74 9C78 16 82 20 92 20Z'/%3E%3C/svg%3E")
+    0 0 / 100% 100% no-repeat;
+}
+
+.panel__face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #dcd8cf center / cover no-repeat;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 24px 40px -28px rgb(17 17 17 / calc(0.4 * (1 - var(--wash))));
+}
+
+/* A sheen across each face, so the panels read as glass rather than paper. */
+.panel__face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   background: linear-gradient(115deg, rgba(255, 255, 255, 0.22), transparent 38%);
   pointer-events: none;
 }
 
 /* The wash toward the ends of the line: opaque paper over the face. */
-.panel::before {
+.panel__face::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   background: var(--paper);
   opacity: var(--wash);
   pointer-events: none;
 }
 
-.panel video {
+.panel__face video {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -206,7 +255,7 @@ p {
 }
 
 .cursor {
-  position: absolute;
+  position: fixed;
   left: -32px;
   top: -32px;
   z-index: 2000;

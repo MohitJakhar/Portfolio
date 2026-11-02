@@ -170,7 +170,15 @@ export function Stack({ onOpen, hidden }: Props) {
     return () => box.removeEventListener('wheel', onWheel);
   }, [hidden]);
 
-  const press = useRef<{ x: number; y: number; t: number; travel: number; panel: number | null } | null>(null);
+  const press = useRef<{
+    x: number;
+    y: number;
+    travel: number;
+    panel: number | null;
+    touch: boolean;
+    /** Recent offsets, for the release speed. */
+    hist: { t: number; o: number }[];
+  } | null>(null);
 
   const panelAt = (e: React.PointerEvent) => {
     const el = (e.target as Element | null)?.closest?.('.panel');
@@ -185,8 +193,8 @@ export function Stack({ onOpen, hidden }: Props) {
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse') {
-      const r = boxRef.current!.getBoundingClientRect();
-      pointer.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+      // Window coordinates: the cursor is fixed over the whole page.
+      pointer.current = { x: e.clientX, y: e.clientY };
       const h = dragging.current ? null : panelAt(e);
       if (h !== hovered.current) {
         hovered.current = h;
@@ -203,21 +211,36 @@ export function Stack({ onOpen, hidden }: Props) {
     if (p.travel < DRAG_SLOP) return;
     if (!dragging.current) {
       dragging.current = true;
-      boxRef.current?.setPointerCapture(e.pointerId);
+      // Keeps the drag when the finger leaves the box. Never let it abort one.
+      try {
+        boxRef.current?.setPointerCapture(e.pointerId);
+      } catch {
+        /* the pointer is already gone */
+      }
     }
     target.current = null;
-    // Along the line, which runs mostly sideways.
-    const along = dxp - dyp * 0.25;
-    const delta = -along / (size.current.P * 0.5);
-    offset.current += delta;
+    velocity.current = 0;
+    // Along the line. On a phone a swipe counts in either axis, and swiping up
+    // or left both go to the next project, like scrolling down a feed. A mouse
+    // drag is mostly sideways.
+    const along = p.touch ? dxp + dyp : dxp - dyp * 0.25;
+    offset.current -= along / (size.current.P * (p.touch ? 0.85 : 0.5));
     const now = performance.now();
-    velocity.current = (delta / Math.max(8, now - p.t)) * 1000 * 0.6 + velocity.current * 0.4;
-    p.t = now;
+    p.hist.push({ t: now, o: offset.current });
+    while (p.hist.length > 2 && now - p.hist[0].t > 120) p.hist.shift();
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    press.current = { x: e.clientX, y: e.clientY, t: performance.now(), travel: 0, panel: panelAt(e) };
+    const now = performance.now();
+    press.current = {
+      x: e.clientX,
+      y: e.clientY,
+      travel: 0,
+      panel: panelAt(e),
+      touch: e.pointerType !== 'mouse',
+      hist: [{ t: now, o: offset.current }],
+    };
     dragging.current = false;
     velocity.current = 0;
   };
@@ -227,7 +250,21 @@ export function Stack({ onOpen, hidden }: Props) {
     press.current = null;
     if (dragging.current) {
       dragging.current = false;
-      boxRef.current?.releasePointerCapture?.(e.pointerId);
+      try {
+        boxRef.current?.releasePointerCapture(e.pointerId);
+      } catch {
+        /* already released */
+      }
+      // Speed over the last ~100ms of the drag rather than the last event, then
+      // land on a whole panel a short way on: on a phone a flick adds at most
+      // one project, so it never spins the loop.
+      const h = p ? p.hist : [];
+      const a = h[0];
+      const b = h[h.length - 1];
+      const dt = a && b ? (b.t - a.t) / 1000 : 0;
+      const v = dt > 0.01 && performance.now() - b.t < 80 ? (b.o - a.o) / dt : 0;
+      const fling = p?.touch ? clamp(v * 0.12, -1, 1) : clamp(v * 0.18, -3, 3);
+      target.current = Math.round(offset.current + fling);
       return;
     }
     if (p?.panel == null) return;
@@ -261,6 +298,8 @@ export function Stack({ onOpen, hidden }: Props) {
         onPointerUp={onPointerUp}
         onPointerCancel={() => {
           press.current = null;
+          // Don't leave the stack resting between two panels.
+          if (dragging.current) target.current = Math.round(offset.current);
           dragging.current = false;
         }}
         onPointerLeave={(e) => {
@@ -287,31 +326,39 @@ export function Stack({ onOpen, hidden }: Props) {
             style={{
               width: `calc(var(--P) * ${Math.sqrt(p.aspect).toFixed(4)})`,
               aspectRatio: String(p.aspect),
-              backgroundImage: `url("${poster(p, small)}")`,
             }}
           >
-            {i === active && settled && (
-              <video
-                key={p.slug}
-                src={bestSrc(p, small)}
-                muted
-                autoPlay
-                loop
-                playsInline
-                preload="auto"
-                ref={(v) => {
-                  if (v) v.muted = true;
-                }}
-              />
-            )}
+            {/* The folder each project sits in, behind its face. */}
+            <span className="panel__folder" aria-hidden>
+              <span className="panel__tab" />
+            </span>
+            <span className="panel__face" style={{ backgroundImage: `url("${poster(p, small)}")` }}>
+              {i === active && settled && (
+                <video
+                  key={p.slug}
+                  src={bestSrc(p, small)}
+                  muted
+                  autoPlay
+                  loop
+                  playsInline
+                  preload="auto"
+                  ref={(v) => {
+                    if (v) v.muted = true;
+                  }}
+                />
+              )}
+            </span>
           </button>
         ))}
 
-        <div ref={cursorRef} className={`cursor${over !== null ? ' is-open' : ''}`} aria-hidden>
-          {over === null ? 'Drag' : over === active ? 'Play' : 'View'}
-        </div>
       </div>
 
+
+      {/* Outside the stack: its perspective would trap a fixed element and clip
+          the circle at the stack's edges. */}
+      <div ref={cursorRef} className={`cursor${over !== null ? ' is-open' : ''}`} aria-hidden>
+        {over === null ? 'Drag' : over === active ? 'Play' : 'View'}
+      </div>
 
       {/* The open project, large, from the left margin. Keyed so each change
           plays the swap. */}
