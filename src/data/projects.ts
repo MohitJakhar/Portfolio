@@ -107,15 +107,19 @@ export const mp4 = (p: Project, small = false) => v(p, small, 'mp4');
 export const webm = (p: Project, small = false) => v(p, small, 'webm');
 export const poster = (p: Project, small = false) =>
   asset(`media/poster/${p.slug}${small ? '-sm' : ''}.jpg`);
-/** Full-bleed frame used as the backdrop plate behind the pattern. */
+/** A 16:9 still of each clip (unused by the current layout). */
 export const plate = (p: Project, small = false) =>
   asset(`media/poster/${p.slug}-plate${small ? '-sm' : ''}.jpg`);
+
+/** The delivery format, read off the clip's shape. */
+export const formatOf = (p: Project) =>
+  p.aspect > 1.5 ? '16:9 film' : p.aspect < 0.65 ? '9:16 reel' : '4:5 post';
 
 let webmOk: boolean | null = null;
 
 /**
- * Single best source for imperative playback (the backdrop feeds one <video>
- * straight into a GL texture, so it can't use <source> negotiation).
+ * Single best source for a <video> given one `src` rather than <source>
+ * negotiation (the open panel's clip).
  */
 export const bestSrc = (p: Project, small = false) => {
   if (webmOk === null) {
